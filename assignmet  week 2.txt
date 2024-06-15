@@ -1,0 +1,85 @@
+1.CREATE PROCEDURE InsertOrderDetails
+    @OrderID INT,
+    @ProductID INT,
+    @UnitPrice DECIMAL(18,2),
+    @Quantity INT,
+    @Discount DECIMAL(18,2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    INSERT INTO OrderDetails (OrderID, ProductID, UnitPrice, Quantity, Discount)
+    VALUES (@OrderID, @ProductID, @UnitPrice, @Quantity, @Discount);
+
+    IF @@ROWCOUNT = 0
+    BEGIN
+        PRINT 'Failed to place the order. Please try again.';
+    END
+    ELSE
+    BEGIN
+        -- Adjust the UnitsInStock value in the products table
+        UPDATE Products
+        SET UnitsInStock = UnitsInStock - @Quantity
+        WHERE ProductID = @ProductID;
+    END
+END
+
+2. CREATE PROCEDURE UpdateOrderDetails
+    @OrderID INT,
+    @ProductID INT,
+    @UnitPrice DECIMAL(18,2) = NULL,
+    @Quantity INT = NULL,
+    @Discount DECIMAL(18,2) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE OrderDetails
+    SET UnitPrice = ISNULL(@UnitPrice, UnitPrice),
+        Quantity = ISNULL(@Quantity, Quantity),
+        Discount = ISNULL(@Discount, Discount)
+    WHERE OrderID = @OrderID AND ProductID = @ProductID;
+
+    -- Adjust the UnitsInStock value in the products table
+    UPDATE Products
+    SET UnitsInStock = UnitsInStock + (ISNULL(@Quantity, Quantity) - Quantity)
+    WHERE ProductID = @ProductID;
+END
+
+3. CREATE PROCEDURE GetOrderDetails
+    @OrderID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF NOT EXISTS (SELECT 1 FROM OrderDetails WHERE OrderID = @OrderID)
+    BEGIN
+        PRINT 'The OrderID ' + CAST(@OrderID AS VARCHAR(10)) + ' does not exist';
+        RETURN 1;
+    END
+
+    SELECT * FROM OrderDetails WHERE OrderID = @OrderID;
+END
+
+4.  CREATE PROCEDURE DeleteOrderDetails
+    @OrderID INT,
+    @ProductID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF NOT EXISTS (SELECT 1 FROM OrderDetails WHERE OrderID = @OrderID)
+    BEGIN
+        PRINT 'The OrderID ' + CAST(@OrderID AS VARCHAR(10)) + ' does not exist';
+        RETURN -1;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM OrderDetails WHERE OrderID = @OrderID AND ProductID = @ProductID)
+    BEGIN
+        PRINT 'The ProductID ' + CAST(@ProductID AS VARCHAR(10)) + ' does not exist in the order';
+        RETURN -1;
+    END
+
+    DELETE FROM OrderDetails
+    WHERE OrderID = @OrderID AND ProductID = @ProductID;
+END
